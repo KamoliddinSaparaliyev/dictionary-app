@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './App.css';
-import valomeOn from './assets/volume-on.svg';
+import volumeOn from './assets/volume-on.svg';
 
 function App() {
   const [word, setWord] = useState('');
@@ -8,6 +8,13 @@ function App() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const sound = new Audio();
+
+  useEffect(() => {
+    // Initialize Telegram Web App environment
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+    }
+  }, []);
 
   async function getDefinition(word) {
     setIsLoading(true);
@@ -22,47 +29,32 @@ function App() {
         setData(null);
       }
     } catch (err) {
-      setError('An error occurred while fetching data.' + err.message);
+      setError('An error occurred while fetching data: ' + err.message);
     }
     setIsLoading(false);
   }
 
-  // Fetch the word from the URL when the component mounts
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const searchQuery = params.get('search');
-    if (searchQuery) {
-      setWord(searchQuery);
-      getDefinition(searchQuery);
-    }
-  }, []);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (word) {
-      // Update URL without reloading the page
+      await getDefinition(word);
+      // Update URL for search query
       const params = new URLSearchParams();
       params.set('search', word);
       window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
-      
-      // Fetch the word definition
-      await getDefinition(word);
     }
   };
-
-  function checkAudio(audio) {
-    if (audio.includes('uk.mp3')) {
-      return 'uk';
-    }
-    if (audio.includes('us.mp3')) {
-      return 'us';
-    }
-  }
 
   const playSound = (audioSrc) => {
     if (audioSrc) {
       sound.src = audioSrc;
-      sound.play();
+      sound.play().catch((error) => {
+        console.error('Failed to play sound:', error);
+        // If running inside Telegram Web App, show an alert
+        if (window.Telegram && window.Telegram.WebApp) {
+          window.Telegram.WebApp.showAlert('Failed to play sound');
+        }
+      });
     }
   };
 
@@ -70,7 +62,16 @@ function App() {
     return arr.map((item, index) => (
       <p key={index} className="synonym">{item}</p>
     ));
-  }
+  };
+
+  const checkAudio = (audio) => {
+    if (audio.includes('uk.mp3')) {
+      return 'uk';
+    }
+    if (audio.includes('us.mp3')) {
+      return 'us';
+    }
+  };
 
   return (
     <div className="container">
@@ -98,23 +99,21 @@ function App() {
                 <div key={i} className="description">
                   <div className="word-card">
                     <div className='word-box'>
-                      <h3 className="word">
-                        {item.word}
-                      </h3>
+                      <h3 className="word">{item.word}</h3>
                       <i className='phonetic'>{item.phonetic}</i>
                     </div>
-                    {
-                      item.phonetics.map((phonetic, i) => (
-                        <div className='phonetic-box' key={i}>
-                          {phonetic.text && phonetic.audio && <span>{phonetic.text} <b>{checkAudio(phonetic?.audio)}</b></span>}
-                          {phonetic.audio && (
-                            <button onClick={() => playSound(phonetic.audio)}>
-                              <img src={valomeOn} className='valome' alt="Play sound" />
-                            </button>
-                          )}
-                        </div>
-                      ))
-                    }
+                    {item.phonetics.map((phonetic, i) => (
+                      <div className='phonetic-box' key={i}>
+                        {phonetic.text && phonetic.audio && (
+                          <span>{phonetic.text} <b>{checkAudio(phonetic.audio)}</b></span>
+                        )}
+                        {phonetic.audio && (
+                          <button onClick={() => playSound(phonetic.audio)}>
+                            <img src={volumeOn} className='volume' alt="Play sound" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
                     {item.meanings.map((meaning, i) => (
                       <div key={i}>
                         <h3 className="partOfSpeech">{meaning.partOfSpeech}</h3>
@@ -139,9 +138,7 @@ function App() {
                           </div>
                         )}
                       </div>
-
                     ))}
-
                   </div>
                 </div>
               ))}
