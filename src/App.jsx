@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
 import valomeOn from './assets/volume-on.svg';
 
@@ -27,21 +27,36 @@ function App() {
     setIsLoading(false);
   }
 
+  // Fetch the word from the URL when the component mounts
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const searchQuery = params.get('search');
+    if (searchQuery) {
+      setWord(searchQuery);
+      getDefinition(searchQuery);
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (word) {
+      // Update URL without reloading the page
+      const params = new URLSearchParams();
+      params.set('search', word);
+      window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+      
+      // Fetch the word definition
       await getDefinition(word);
     }
   };
 
   function checkAudio(audio) {
     if (audio.includes('uk.mp3')) {
-      return 'uk'
+      return 'uk';
     }
     if (audio.includes('us.mp3')) {
-      return 'us'
+      return 'us';
     }
-
   }
 
   const playSound = (audioSrc) => {
